@@ -4,7 +4,9 @@ from traceback import print_exc
 
 import youtube_dl
 from config import TELEGRAM_USER_ID, BOT_TOKEN, WETRANSFER_KEY
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, \
+    CallbackQueryHandler
 from wetransfer import TransferApi
 
 # Enable logging
@@ -22,11 +24,43 @@ def download_video(link: str):
     try:
         ydl_opts = {'noplaylist': True,
                     'outtmpl': "{}/%(id)s.%(ext)s".format(down_folder),
-                    'nocontinue': True,
                     'format': 'bestvideo+bestaudio/best',
-                    'merge-output-format': 'mp4'
+                    'merge_output_format': 'mp4',
                     }
 
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([link])
+    except:
+        print_exc()
+        return None
+
+    down_folder_after_down = os.listdir(down_folder)
+    video = None
+    for file in down_folder_after_down:
+        if file in down_folder_before_down:
+            file_path = os.path.normpath('{}/{}'.format(down_folder, file))
+            os.remove(file_path)
+        else:
+            video = os.path.normpath('{}/{}'.format(down_folder, file))
+
+    return video
+
+
+def download_audio(link: str):
+    work_dir = os.path.dirname(os.path.realpath(__file__))
+    down_folder = os.path.normpath('{}/downloads/'.format(work_dir))
+    down_folder_before_down = os.listdir(down_folder)
+    try:
+        ydl_opts = {
+            'noplaylist': True,
+            'outtmpl': "{}/%(id)s.%(ext)s".format(down_folder),
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        }
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             ydl.download([link])
     except:
@@ -65,10 +99,46 @@ def start(update, context):
 
 
 def down(update, context):
-    msg = '*Download:*\n\n{}'. \
-        format(upload_file(download_video(update.message.text),
-                           update.message.text))
-    update.message.reply_markdown(msg, quote=True)
+    keyboard = [
+        [InlineKeyboardButton('Vídeo',
+                              callback_data='video'),
+         InlineKeyboardButton('Áudio',
+                              callback_data='audio')],
+    ]
+
+    reply_markup_kb = InlineKeyboardMarkup(keyboard)
+    # msg = '_{}_'.format(update.message.text)
+    msg = '> O que você deseja baixar?'
+    update.message.reply_markdown(msg, quote=True, reply_markup=reply_markup_kb)
+
+    # msg = '*Download:*\n\n{}'. \
+    #     format(upload_file(download_video(update.message.text),
+    #                        update.message.text))
+    # update.message.reply_markdown(msg, quote=True)
+
+
+def button_handler(update, context):
+    query = update.callback_query
+    option = query.data
+    link = query.message.reply_to_message.text
+
+    if option == 'video':
+        msg = '*Download do vídeo que você pediu:*\n\n{}'. \
+            format(upload_file(download_video(link),
+                               link))
+        # update.message.reply_markdown(msg, quote=True)
+        query.edit_message_text(text=msg,
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN)
+
+    elif option == 'audio':
+        msg = '*Download áudio que você pediu:*\n\n{}'. \
+            format(upload_file(download_audio(link),
+                               link))
+        # update.message.reply_markdown(msg, quote=True)
+        query.edit_message_text(text=msg,
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN)
 
 
 def main():
@@ -84,6 +154,8 @@ def main():
     # on different commands - answer in Telegram
     dp.add_handler(
         CommandHandler("start", start, Filters.user(TELEGRAM_USER_ID)))
+
+    updater.dispatcher.add_handler(CallbackQueryHandler(button_handler))
 
     # on noncommand i.e message - echo the message on Telegram
     dp.add_handler(MessageHandler(Filters.text & Filters.user(TELEGRAM_USER_ID),

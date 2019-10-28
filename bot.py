@@ -3,10 +3,9 @@ import os
 from traceback import print_exc
 
 import youtube_dl
+from config import TELEGRAM_USER_ID, BOT_TOKEN, WETRANSFER_KEY
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 from wetransfer import TransferApi
-
-from app.config import TELEGRAM_USER_ID, BOT_TOKEN, WETRANSFER_KEY
 
 # Enable logging
 logging.basicConfig(

@@ -1,0 +1,3 @@
+youtube_dl
+py3wetransfer
+python-telegram-bot

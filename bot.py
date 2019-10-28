@@ -132,7 +132,7 @@ def button_handler(update, context):
                                 parse_mode=ParseMode.MARKDOWN)
 
     elif option == 'audio':
-        msg = '*Download áudio que você pediu:*\n\n{}'. \
+        msg = '*Download do áudio que você pediu:*\n\n{}'. \
             format(upload_file(download_audio(link),
                                link))
         # update.message.reply_markdown(msg, quote=True)

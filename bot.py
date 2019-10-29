@@ -17,6 +17,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def check_valid_url(link):
+    try:
+        ydl_opts = {'noplaylist': True,
+                    # 'dump_single_json': True,
+                    'skip_download': True,
+                    'quiet': True,
+                    'simulate': True
+                    }
+
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([link])
+    except:
+        return False
+    else:
+        return True
+
+
 def download_video(link: str):
     work_dir = os.path.dirname(os.path.realpath(__file__))
     down_folder = os.path.normpath('{}/downloads/'.format(work_dir))
@@ -99,22 +116,27 @@ def start(update, context):
 
 
 def down(update, context):
-    keyboard = [
-        [InlineKeyboardButton('Vídeo',
-                              callback_data='video'),
-         InlineKeyboardButton('Áudio',
-                              callback_data='audio')],
-    ]
+    link = update.message.text
 
-    reply_markup_kb = InlineKeyboardMarkup(keyboard)
-    # msg = '_{}_'.format(update.message.text)
-    msg = '> O que você deseja baixar?'
-    update.message.reply_markdown(msg, quote=True, reply_markup=reply_markup_kb)
+    is_url_valid = check_valid_url(link)
+    print(link, is_url_valid)
+    if is_url_valid:
+        keyboard = [
+            [InlineKeyboardButton('Vídeo',
+                                  callback_data='video'),
+             InlineKeyboardButton('Áudio',
+                                  callback_data='audio')],
+        ]
 
-    # msg = '*Download:*\n\n{}'. \
-    #     format(upload_file(download_video(update.message.text),
-    #                        update.message.text))
-    # update.message.reply_markdown(msg, quote=True)
+        reply_markup_kb = InlineKeyboardMarkup(keyboard)
+
+        msg = '_O que você deseja baixar?_'
+        update.message.reply_markdown(msg,
+                                      quote=True,
+                                      reply_markup=reply_markup_kb)
+    else:
+        msg = '_URL Inválida ou não suportada!\nTente de novo com outra._'
+        update.message.reply_markdown(msg, quote=True)
 
 
 def button_handler(update, context):
@@ -129,7 +151,8 @@ def button_handler(update, context):
         # update.message.reply_markdown(msg, quote=True)
         query.edit_message_text(text=msg,
                                 quote=True,
-                                parse_mode=ParseMode.MARKDOWN)
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
 
     elif option == 'audio':
         msg = '*Download do áudio que você pediu:*\n\n{}'. \
@@ -138,7 +161,8 @@ def button_handler(update, context):
         # update.message.reply_markdown(msg, quote=True)
         query.edit_message_text(text=msg,
                                 quote=True,
-                                parse_mode=ParseMode.MARKDOWN)
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
 
 
 def main():

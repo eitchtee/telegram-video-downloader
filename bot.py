@@ -41,7 +41,8 @@ def download_video(link: str):
     try:
         ydl_opts = {'noplaylist': True,
                     'outtmpl': "{}/%(id)s.%(ext)s".format(down_folder),
-                    'format': 'bestvideo+bestaudio/best',
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/'
+                              'bestvideo+bestaudio/best',
                     'merge_output_format': 'mp4',
                     }
 

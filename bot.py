@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def check_valid_url(link):
+def check_valid_urls(link):
     try:
         ydl_opts = {'noplaylist': True,
                     # 'dump_single_json': True,
@@ -41,8 +41,8 @@ def download_video(link: str):
     try:
         ydl_opts = {'noplaylist': True,
                     'outtmpl': "{}/%(id)s.%(ext)s".format(down_folder),
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/'
-                              'bestvideo+bestaudio/best',
+                    'format': 'bestvideo[ext=mp4]+bestaudio['
+                              'ext=m4a]/bestvideo+bestaudio/best',
                     'merge_output_format': 'mp4',
                     }
 
@@ -117,48 +117,57 @@ def start(update, context):
 
 
 def down(update, context):
-    link = update.message.text
+    links = update.message.text.split('\n')
+    valid_links = []
 
-    is_url_valid = check_valid_url(link)
-    print(link, is_url_valid)
-    if is_url_valid:
+    for link in links:
+        is_url_valid = check_valid_urls(link)
+        print(link, is_url_valid)
+        if is_url_valid:
+            valid_links.append(link)
+        else:
+            msg = f'*{link}*\n' \
+                f'_URL Inválida ou não suportada!\n' \
+                f'Tente de novo com outra._'
+            update.message.reply_markdown(msg, quote=True)
+    print(valid_links)
+
+    for link in valid_links:
         keyboard = [
             [InlineKeyboardButton('Vídeo',
-                                  callback_data='video'),
+                                  callback_data=f'v|{link}'),
              InlineKeyboardButton('Áudio',
-                                  callback_data='audio')],
+                                  callback_data=f'a|{link}')],
         ]
 
         reply_markup_kb = InlineKeyboardMarkup(keyboard)
 
-        msg = '_O que você deseja baixar?_'
+        msg = f'*{link}*\n_O que você deseja baixar?_'
         update.message.reply_markdown(msg,
+                                      disable_web_page_preview=True,
                                       quote=True,
                                       reply_markup=reply_markup_kb)
-    else:
-        msg = '_URL Inválida ou não suportada!\nTente de novo com outra._'
-        update.message.reply_markdown(msg, quote=True)
 
 
 def button_handler(update, context):
     query = update.callback_query
-    option = query.data
-    link = query.message.reply_to_message.text
+    option, video_link = query.data.split('|')
+    # link = query.message.reply_to_message.text
 
-    if option == 'video':
-        msg = '*Download do vídeo que você pediu:*\n\n{}'. \
-            format(upload_file(download_video(link),
-                               link))
+    if option == 'v':
+        msg = '*{}*\n_Download do vídeo que você pediu:_\n\n{}'. \
+            format(video_link,
+                   upload_file(download_video(video_link), video_link))
         # update.message.reply_markdown(msg, quote=True)
         query.edit_message_text(text=msg,
                                 quote=True,
                                 parse_mode=ParseMode.MARKDOWN,
                                 disable_web_page_preview=True)
 
-    elif option == 'audio':
-        msg = '*Download do áudio que você pediu:*\n\n{}'. \
-            format(upload_file(download_audio(link),
-                               link))
+    elif option == 'a':
+        msg = '*{}*\n_Download do áudio que você pediu:_\n\n{}'. \
+            format(video_link,
+                   upload_file(download_audio(video_link), video_link))
         # update.message.reply_markdown(msg, quote=True)
         query.edit_message_text(text=msg,
                                 quote=True,

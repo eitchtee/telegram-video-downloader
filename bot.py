@@ -1,5 +1,8 @@
+import json
 import logging
 import os
+import random
+import string
 from traceback import print_exc
 
 import youtube_dl
@@ -15,6 +18,11 @@ logging.basicConfig(
     level=logging.INFO)
 
 logger = logging.getLogger(__name__)
+
+
+def queue_dir(request_id):
+    work_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.normpath('{}/queue/{}.json'.format(work_dir, request_id))
 
 
 def check_valid_urls(link):
@@ -124,7 +132,9 @@ def down(update, context):
         is_url_valid = check_valid_urls(link)
         print(link, is_url_valid)
         if is_url_valid:
-            valid_links.append(link)
+            chars = string.ascii_uppercase + string.digits
+            file_id = ''.join(random.choice(chars) for x in range(20))
+            valid_links.append([link, file_id])
         else:
             msg = f'*{link}*\n' \
                 f'_URL Inválida ou não suportada!\n' \
@@ -133,16 +143,21 @@ def down(update, context):
     print(valid_links)
 
     for link in valid_links:
+        with open(queue_dir(link[1]), 'w') as file:
+            json.dump({'link': link[0]}, file)
+
         keyboard = [
             [InlineKeyboardButton('Vídeo',
-                                  callback_data=f'v|{link}'),
+                                  callback_data=f'v|{link[1]}'),
              InlineKeyboardButton('Áudio',
-                                  callback_data=f'a|{link}')],
+                                  callback_data=f'a|{link[1]}')],
+            [InlineKeyboardButton('❌',
+                                  callback_data=f'n|{link[1]}')]
         ]
 
         reply_markup_kb = InlineKeyboardMarkup(keyboard)
 
-        msg = f'*{link}*\n_O que você deseja baixar?_'
+        msg = f'_O que você deseja baixar?_'
         update.message.reply_markdown(msg,
                                       disable_web_page_preview=True,
                                       quote=True,
@@ -151,28 +166,63 @@ def down(update, context):
 
 def button_handler(update, context):
     query = update.callback_query
-    option, video_link = query.data.split('|')
-    # link = query.message.reply_to_message.text
+    option, video_id = query.data.split('|')
 
-    if option == 'v':
-        msg = '*{}*\n_Download do vídeo que você pediu:_\n\n{}'. \
-            format(video_link,
-                   upload_file(download_video(video_link), video_link))
+    file_path = queue_dir(video_id)
+    with open(file_path, 'r') as f:
+        video_link = json.load(f).get('link', None)
+
+    if option == 'v' and video_link:
+        query.edit_message_text(text='_Fazendo o download..._',
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
+
+        msg = '_Download do vídeo que você pediu:_\n\n{}'. \
+            format(upload_file(download_video(video_link), video_link))
+        query.edit_message_text(text=msg,
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
+
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    elif option == 'a' and video_link:
+        query.edit_message_text(text='_Fazendo o download..._',
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
+
+        msg = '_Download do áudio que você pediu:_\n\n{}'. \
+            format(upload_file(download_audio(video_link), video_link))
         # update.message.reply_markdown(msg, quote=True)
         query.edit_message_text(text=msg,
                                 quote=True,
                                 parse_mode=ParseMode.MARKDOWN,
                                 disable_web_page_preview=True)
 
-    elif option == 'a':
-        msg = '*{}*\n_Download do áudio que você pediu:_\n\n{}'. \
-            format(video_link,
-                   upload_file(download_audio(video_link), video_link))
-        # update.message.reply_markdown(msg, quote=True)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    elif option == 'n' and video_link:
+        msg = '_Download cancelado._'
         query.edit_message_text(text=msg,
                                 quote=True,
                                 parse_mode=ParseMode.MARKDOWN,
                                 disable_web_page_preview=True)
+
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    else:
+        msg = '_Não foi possível fazer o download do vídeo._'
+        query.edit_message_text(text=msg,
+                                quote=True,
+                                parse_mode=ParseMode.MARKDOWN,
+                                disable_web_page_preview=True)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
 
 
 def main():
